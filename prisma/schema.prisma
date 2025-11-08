@@ -1,0 +1,194 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              String   @id @default(cuid())
+  email           String   @unique
+  name            String?
+  avatar          String?
+  educationLevel  String?
+  dateOfBirth     DateTime?
+  bio             String?
+  points          Int      @default(0)
+  level           Int      @default(1)
+  streak          Int      @default(0)
+  lastActiveDate  DateTime?
+  preferences     Json?    // User preferences like theme, notifications
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  progress        UserProgress[]
+  achievements    UserAchievement[]
+  quizAttempts    QuizAttempt[]
+  studySessions   StudySession[]
+  discussions     Discussion[]
+  discussionReplies DiscussionReply[]
+  posts           Post[]
+  
+  @@map("users")
+}
+
+model UserProgress {
+  id               String   @id @default(cuid())
+  userId           String
+  curriculumId     String
+  subjectId        String
+  lessonId         String
+  status           String   @default("not_started") // not_started, in_progress, completed
+  completionDate   DateTime?
+  timeSpent        Int      @default(0) // in minutes
+  score            Int?     // quiz score percentage
+  attempts         Int      @default(0)
+  lastAccessedAt   DateTime @default(now())
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, lessonId])
+  @@map("user_progress")
+}
+
+model Achievement {
+  id            String   @id @default(cuid())
+  title         String
+  description   String
+  icon          String
+  badgeColor    String
+  points        Int
+  category      String   // learning, social, streak, etc.
+  condition     Json     // Conditions to unlock achievement
+  createdAt     DateTime @default(now())
+
+  userAchievements UserAchievement[]
+  
+  @@map("achievements")
+}
+
+model UserAchievement {
+  id            String   @id @default(cuid())
+  userId        String
+  achievementId String
+  unlockedAt    DateTime @default(now())
+  progress      Int      @default(0) // For partial progress achievements
+  
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  achievement   Achievement @relation(fields: [achievementId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, achievementId])
+  @@map("user_achievements")
+}
+
+model Quiz {
+  id            String   @id @default(cuid())
+  lessonId      String
+  title         String
+  description   String?
+  timeLimit     Int?     // in minutes
+  passingScore  Int      @default(70)
+  maxAttempts   Int      @default(3)
+  questions     Json     // Array of quiz questions
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  quizAttempts  QuizAttempt[]
+  
+  @@map("quizzes")
+}
+
+model QuizAttempt {
+  id          String   @id @default(cuid())
+  userId      String
+  quizId      String
+  answers     Json     // User's answers
+  score       Int
+  passed      Boolean
+  timeSpent   Int      // in seconds
+  attemptedAt DateTime @default(now())
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  quiz        Quiz     @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  
+  @@map("quiz_attempts")
+}
+
+model StudySession {
+  id            String   @id @default(cuid())
+  userId        String
+  lessonId      String
+  startTime     DateTime @default(now())
+  endTime       DateTime?
+  duration      Int?     // in minutes
+  notes         String?
+  completed     Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("study_sessions")
+}
+
+model Discussion {
+  id            String   @id @default(cuid())
+  userId        String
+  lessonId      String
+  title         String
+  content       String
+  tags          String   // JSON string array of tags
+  upvotes       Int      @default(0)
+  downvotes     Int      @default(0)
+  isPinned      Boolean  @default(false)
+  isLocked      Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  replies       DiscussionReply[]
+  
+  @@map("discussions")
+}
+
+model DiscussionReply {
+  id            String   @id @default(cuid())
+  userId        String
+  discussionId  String
+  content       String
+  upvotes       Int      @default(0)
+  downvotes     Int      @default(0)
+  isAccepted    Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  discussion    Discussion @relation(fields: [discussionId], references: [id], onDelete: Cascade)
+  
+  @@map("discussion_replies")
+}
+
+model Post {
+  id        String   @id @default(cuid())
+  title     String
+  content   String?
+  published Boolean  @default(false)
+  authorId  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  
+  @@map("posts")
+}
